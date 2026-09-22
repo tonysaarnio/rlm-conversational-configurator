@@ -95,7 +95,8 @@ force-app/main/default/
     *Test.cls                             # deploy-gate coverage (seam-based, no live Einstein/agent credits)
   lwc/
     configChatPanel/                      # THE deliverable — pre-persist aware, LMS publish+subscribe
-    configRefreshProbe/  spikeConfigApply/ renderDraw3DConfigurationPrototype/   # diagnostic / spike / reference
+    configRefreshProbe/  spikeConfigApply/                          # diagnostic / spike
+    renderDraw3DConfigurationPrototype/   # ⚠ reference only — WILL NOT DEPLOY without org-resident UTIL_ConfigHelper
   flows/
     Agent_Product_Configurator_Flow.flow-meta.xml   # OURS — embeds configChatPanel; deploy = new active version
     RenderDraw_Product_Configurator_Flow.flow-meta.xml   # reference flow (protected; unchanged)
@@ -107,6 +108,11 @@ force-app/main/default/
 `renderDraw3DConfigurationPrototype`, `RenderDraw_Product_Configurator_Flow`, and the `Revenue_Quote_Management`
 agent. `ConfigLmsGroundingService` and `ConfigEngineController` are reference for this feature and were not changed
 in the pre-persist work — no need to redeploy them unless you actually edit them.
+
+> ⚠️ **`renderDraw3DConfigurationPrototype` cannot deploy to most orgs.** It imports three methods from
+> `UTIL_ConfigHelper`, which is org-resident and *not* in this repo, so any deploy whose scope includes it fails
+> with `Unable to find Apex action class referenced as 'UTIL_ConfigHelper'`. It is reference material — keep it out
+> of your deploy scope (the staged §4 order does this; the whole-folder shortcut in §10 does not).
 
 ---
 
@@ -150,11 +156,19 @@ sf project deploy start --source-dir force-app/main/default/lwc -o "$ORG" --wait
 ### Step 3 — Flow
 
 ```bash
-sf project deploy start --source-dir force-app/main/default/flows -o "$ORG" --wait 10
+sf project deploy start \
+  --source-dir force-app/main/default/flows/Agent_Product_Configurator_Flow.flow-meta.xml \
+  -o "$ORG" --wait 10
 ```
 
 - Deploying `Agent_Product_Configurator_Flow` creates a **new active version**. The pre-persist work added the
   `S01_DataManager.rootProductId → S00_ConfigChatPanel.rootProductId` input binding.
+- **Target the single flow file, not the `flows/` directory.** The directory also holds the reference flow
+  `RenderDraw_Product_Configurator_Flow`, which embeds the `c:renderDraw3DConfigurationPrototype` screen
+  component; on an org without the org-resident `UTIL_ConfigHelper` that LWC does not exist, so deploying the
+  directory fails with `We can't find an extension called "c:renderDraw3DConfigurationPrototype"` — even when the
+  LWC itself is excluded from the deploy. The reference-only dependency is chained: reference flow → reference
+  LWC → org-resident Apex.
 
 ### Step 4 — Agent bundle (NGA / Agent Builder 2.0)
 
@@ -238,9 +252,13 @@ only be checked live.
   `undefined` reactive param so they never fire with a `ref_`.
 - **Production coverage gate** — each deployed Apex class needs ≥75% coverage from the tests you specify, and those
   tests must pass. That's why §4 specifies only the passing seam-based suites.
-- **No secrets in source** — the repo is intentionally **private**. Do not commit org auth (`.sf/`, `.sfdx/` are
-  gitignored), client secrets, or `.env`. External-credential secrets are entered on the principal in the org, not
-  in metadata.
+- **No secrets in source — and do not rely on the repo being private, because it is not.** This repo is **public**.
+  An earlier revision of this guide asserted it was private and used that as the justification for committing an
+  OAuth consumer key into the `ExternalCredential` metadata; that credential metadata has since been removed (it
+  was also unused and would not deploy). Treat every commit as world-readable: no org auth (`.sf/`, `.sfdx/` are
+  gitignored), no client ids or secrets, no `.env`. External-credential secrets belong on the principal in the
+  org, never in metadata. Note that deleting a committed credential does **not** unpublish it — anything already
+  pushed must be **rotated** in the org, not just removed from the tree.
 
 ---
 
@@ -297,8 +315,16 @@ The project is **git-backed** (private repo, branch `rlm-config-agent-v2`).
 ```bash
 ORG=<your-org-alias>
 
-# Deploy everything under force-app in one shot (tests included)
-sf project deploy start --source-dir force-app \
+# Deploy everything DEPLOYABLE in one shot (tests included).
+# NOTE: this deliberately lists directories rather than passing `--source-dir force-app`,
+# which fails — see the note below.
+sf project deploy start \
+  --source-dir force-app/main/default/classes \
+  --source-dir force-app/main/default/lwc/configChatPanel \
+  --source-dir force-app/main/default/lwc/configRefreshProbe \
+  --source-dir force-app/main/default/lwc/spikeConfigApply \
+  --source-dir force-app/main/default/flows/Agent_Product_Configurator_Flow.flow-meta.xml \
+  --source-dir force-app/main/default/aiAuthoringBundles/Revenue_Product_Advisor \
   -l RunSpecifiedTests \
   --tests ConfigExtractionServiceTest --tests AgentAdvisorServiceTest --tests ProductConfigGroundingServiceTest \
   -o "$ORG" --wait 20
@@ -313,9 +339,11 @@ sf project retrieve start --source-dir force-app/main/default/aiAuthoringBundles
 sf org display -o "$ORG"
 ```
 
-> Note: deploying the whole `force-app` folder (§10 first command) also deploys the reference LWCs/flows and the
-> unchanged reference Apex — harmless, but the staged per-directory order in §4 is preferred for a clean, verifiable
-> rollout (and lets you hard-refresh between the LWC and Flow steps).
+> ⚠️ **`--source-dir force-app` does not work** — this was previously described here as "harmless", which was
+> wrong. The folder contains `renderDraw3DConfigurationPrototype`, which depends on the org-resident
+> `UTIL_ConfigHelper` (see §3); on an org without that class the deploy fails outright rather than degrading. The
+> command above lists the deployable directories explicitly for that reason. The staged per-directory order in §4
+> is still preferred for a clean, verifiable rollout (and lets you hard-refresh between the LWC and Flow steps).
 
 ---
 
