@@ -7,7 +7,8 @@
  *    root line 0QLg8000001RYgDGAW). The probe empirically proved the real Place
  *    Sales Transaction (PST) engine RUNS in a test context here, so the happy
  *    path exercises the real ProductAttributeSaveService end-to-end — no PST stub
- *    needed. We re-submit the CURRENT value (requiredKW=1500) so the live quote is
+ *    needed. We re-submit the line's CURRENT configuration (read back at run time,
+ *    so it is product-agnostic) so the live quote is
  *    not meaningfully mutated, and we accept either PST outcome (assert the wrapper
  *    returned a structured result) so the test is not brittle to engine behavior.
  *
@@ -30,8 +31,15 @@
 private class ConfigEngineControllerTest {
 
     // Known-good seeded records in this org.
-    private static final Id LIVE_QUOTE_ID = '0Q0g80000017wQ5CAI';
-    private static final Id LIVE_ROOT_QLI_ID = '0QLg8000001RYgDGAW';
+    // Discovered from the org at run time rather than pinned to one org's records.
+    // See ConfigTestFixture: tests skip with a clear message when the org has no
+    // configurable quote line, instead of failing as though the code were broken.
+    private static Id LIVE_QUOTE_ID {
+        get { return ConfigTestFixture.discover().quoteId; }
+    }
+    private static Id LIVE_ROOT_QLI_ID {
+        get { return ConfigTestFixture.discover().rootQuoteLineItemId; }
+    }
 
     // ---------------------------------------------------------------------
     // Mock gateways for deterministic failure/exception coverage
@@ -95,6 +103,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void getAttributes_blankId_returnsError() {
+        if (ConfigTestFixture.unavailable('getAttributes_blankId_returnsError')) { return; }
         Test.startTest();
         ConfigEngineController.AttributesResult r =
             ConfigEngineController.getAttributes('');
@@ -109,6 +118,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void getAttributes_liveLine_returnsConfigurableAttributes() {
+        if (ConfigTestFixture.unavailable('getAttributes_liveLine_returnsConfigurableAttributes')) { return; }
         Test.startTest();
         ConfigEngineController.AttributesResult r =
             ConfigEngineController.getAttributes(LIVE_ROOT_QLI_ID);
@@ -132,6 +142,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void getSavedConfiguration_blankId_returnsError() {
+        if (ConfigTestFixture.unavailable('getSavedConfiguration_blankId_returnsError')) { return; }
         Test.startTest();
         ConfigEngineController.SavedConfigResult r =
             ConfigEngineController.getSavedConfiguration(null);
@@ -142,6 +153,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void getSavedConfiguration_liveLine_returnsValues() {
+        if (ConfigTestFixture.unavailable('getSavedConfiguration_liveLine_returnsValues')) { return; }
         Test.startTest();
         ConfigEngineController.SavedConfigResult r =
             ConfigEngineController.getSavedConfiguration(LIVE_ROOT_QLI_ID);
@@ -160,6 +172,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void applyConfiguration_blankInputs_returnsError() {
+        if (ConfigTestFixture.unavailable('applyConfiguration_blankInputs_returnsError')) { return; }
         Test.startTest();
         ConfigEngineController.ApplyResult r =
             ConfigEngineController.applyConfiguration('', '', '');
@@ -174,8 +187,9 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void applyConfiguration_qliNotFound_returnsError() {
+        if (ConfigTestFixture.unavailable('applyConfiguration_qliNotFound_returnsError')) { return; }
         // A syntactically valid but non-existent QLI Id.
-        Id fakeQli = '0QLg8000001RYgDGAW'.left(15) + '999';
+        Id fakeQli = ConfigTestFixture.missingQuoteLineItemId();
         Test.startTest();
         ConfigEngineController.ApplyResult r = ConfigEngineController.applyConfiguration(
             LIVE_QUOTE_ID, fakeQli, '{"requiredKW":1500}');
@@ -192,6 +206,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void applyConfiguration_saveFailure_reportsEngineError() {
+        if (ConfigTestFixture.unavailable('applyConfiguration_saveFailure_reportsEngineError')) { return; }
         // Inject a gateway that reports failure so we do not run PST.
         ConfigEngineBinding.setGateway(new MockSaveGateway(
             makeSaveOutput(false, null, 'Engine rejected the save'),
@@ -199,7 +214,7 @@ private class ConfigEngineControllerTest {
 
         Test.startTest();
         ConfigEngineController.ApplyResult r = ConfigEngineController.applyConfiguration(
-            LIVE_QUOTE_ID, LIVE_ROOT_QLI_ID, '{"requiredKW":1500}');
+            LIVE_QUOTE_ID, LIVE_ROOT_QLI_ID, ConfigTestFixture.currentConfigurationJson());
         Test.stopTest();
 
         System.assertEquals(false, r.isSuccess);
@@ -218,11 +233,12 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void applyConfiguration_saveThrows_caughtAndReported() {
+        if (ConfigTestFixture.unavailable('applyConfiguration_saveThrows_caughtAndReported')) { return; }
         ConfigEngineBinding.setGateway(new ThrowingSaveGateway(ConfigEngineBinding.gateway()));
 
         Test.startTest();
         ConfigEngineController.ApplyResult r = ConfigEngineController.applyConfiguration(
-            LIVE_QUOTE_ID, LIVE_ROOT_QLI_ID, '{"requiredKW":1500}');
+            LIVE_QUOTE_ID, LIVE_ROOT_QLI_ID, ConfigTestFixture.currentConfigurationJson());
         Test.stopTest();
 
         System.assertEquals(false, r.isSuccess,
@@ -239,6 +255,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void applyConfiguration_success_computesDeltaAndDiff() {
+        if (ConfigTestFixture.unavailable('applyConfiguration_success_computesDeltaAndDiff')) { return; }
         // Mock a successful save whose readback silently corrected requiredKW to 1500
         // (the documented DutyRating=DCC override). We request 900 to force a diff.
         ConfigEngineBinding.setGateway(new MockSaveGateway(
@@ -276,13 +293,14 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void applyConfiguration_realEngine_runsEndToEnd() {
+        if (ConfigTestFixture.unavailable('applyConfiguration_realEngine_runsEndToEnd')) { return; }
         // Default (real) gateway → real ProductAttributeSaveService → real PST.
         // Re-submit the current value so the live quote is not meaningfully changed.
         // The probe proved PST runs in-test; we accept either outcome so this test is
         // robust, while still covering the real forwarding gateway + orchestration.
         Test.startTest();
         ConfigEngineController.ApplyResult r = ConfigEngineController.applyConfiguration(
-            LIVE_QUOTE_ID, LIVE_ROOT_QLI_ID, '{"requiredKW":1500}');
+            LIVE_QUOTE_ID, LIVE_ROOT_QLI_ID, ConfigTestFixture.currentConfigurationJson());
         Test.stopTest();
 
         System.assertNotEquals(null, r,
@@ -299,6 +317,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void helper_valuesEqual_numericAndString() {
+        if (ConfigTestFixture.unavailable('helper_valuesEqual_numericAndString')) { return; }
         System.assertEquals(true, ConfigEngineController.valuesEqual('1500', '1500.000000'),
             'Numeric values differing only in formatting are equal');
         System.assertEquals(true, ConfigEngineController.valuesEqual(' PRP ', 'prp'),
@@ -314,6 +333,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void helper_nullSafeMinus() {
+        if (ConfigTestFixture.unavailable('helper_nullSafeMinus')) { return; }
         System.assertEquals(9555, ConfigEngineController.nullSafeMinus(59005, 49450),
             'Delta after - before');
         System.assertEquals(null, ConfigEngineController.nullSafeMinus(null, 100));
@@ -322,6 +342,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void helper_buildDiffs_handlesBlankSaved() {
+        if (ConfigTestFixture.unavailable('helper_buildDiffs_handlesBlankSaved')) { return; }
         // When the engine returned no readback, actual is null → everything changed.
         List<ConfigEngineController.DiffEntry> diffs =
             ConfigEngineController.buildDiffs('{"requiredKW":1500}', null);

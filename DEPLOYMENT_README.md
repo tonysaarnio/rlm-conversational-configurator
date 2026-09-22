@@ -168,12 +168,14 @@ sf project deploy start \
   -o "$ORG" --wait 10
 ```
 
-- These three **seam-based** suites pass deterministically and cover the changed classes
-  (ProductConfigGroundingService 92%, ConfigExtractionService 87%, AgentAdvisorService 84%).
-- **Do NOT add `ConfigEngineControllerTest` or `ConfigLmsGroundingServiceTest` to `--tests` on a clone/new org.**
-  They are **live-data** tests that hardcode the original org's line Id `0QLg8000001RYgDGAW`; they fail with
-  `QuoteLineItem not found` on any org that doesn't have that exact record, which would block the deploy. Re-point
-  their fixtures first (see §7) if you need them.
+- These three **seam-based** suites pass deterministically and cover the changed classes. Coverage percentages are
+  **data-dependent, not fixed**: the reference org reports ProductConfigGroundingService 92%, ConfigExtraction­Service
+  87% and AgentAdvisorService 84%, but the same suite reported 66% for ProductConfigGroundingService on an org with
+  different catalog data. Treat the numbers as a reference point and measure your own org rather than assuming the
+  gate is already cleared.
+- `ConfigEngineControllerTest` is **no longer pinned to one org's records**. It discovers a configurable quote line
+  at run time (`ConfigTestFixture`) and skips with an explanatory message when the org has none, so it is safe to
+  include in `--tests` anywhere. Set `ConfigTestFixture.pinned` to force specific records.
 - **Known CLI quirk:** if `deploy … -l RunSpecifiedTests` reports tests **Skipped** (Passing 0 / Failing 0) because
   the components were unchanged, run the tests explicitly to confirm coverage:
   ```bash
