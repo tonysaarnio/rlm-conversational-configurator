@@ -62,19 +62,55 @@
  */
 public with sharing class AgentAdvisorService {
 
-    // The SAVED-LINE agent's API / developer name (arg 2 of createCustomAction). Verified
-    // identity: Bot Id 0Xxg8000001B9dhCAC, Type = InternalCopilot / AgentforceEmployeeAgent.
+    // Agent API names are org-specific: the reference org's agents are named below, but an
+    // org that built its own will have named them differently, and the panel should not need
+    // an Apex edit for that. The names therefore come from the RLM_Agent_Binding__mdt
+    // "Default" record, falling back to the reference names when it is absent or blank.
+
+    // The SAVED-LINE agent (arg 2 of createCustomAction). Reference-org identity:
+    // Bot Id 0Xxg8000001B9dhCAC, Type = InternalCopilot / AgentforceEmployeeAgent.
     // Used whenever we have a persisted 0QL… line (its topic actions need the real record).
     @TestVisible
-    private static final String AGENT_API_NAME = 'Revenue_Quote_Management';
+    private static final String DEFAULT_AGENT_API_NAME = 'Revenue_Quote_Management';
 
-    // The PRE-PERSIST guided-selling agent's API / developer name. A separate, insight-only,
-    // prompt-grounded Employee Agent with NO data actions (see aiAuthoringBundles/
-    // Revenue_Product_Advisor). It answers purely from the product CONTEXT text we pass, so
-    // it needs no persisted Quote/QLI — which is exactly the catalog-launch case where the
-    // line is still a transient ref_ configurator node. The existing agent is left untouched.
+    // The PRE-PERSIST guided-selling agent. A separate, insight-only, prompt-grounded
+    // Employee Agent with NO data actions (see aiAuthoringBundles/Revenue_Product_Advisor).
+    // It answers purely from the product CONTEXT text we pass, so it needs no persisted
+    // Quote/QLI — exactly the catalog-launch case where the line is still a transient ref_
+    // configurator node. The existing agent is left untouched.
     @TestVisible
-    private static final String PREPERSIST_AGENT_API_NAME = 'Revenue_Product_Advisor';
+    private static final String DEFAULT_PREPERSIST_AGENT_API_NAME = 'Revenue_Product_Advisor';
+
+    // Tests set this to exercise re-pointing without depending on org records.
+    @TestVisible private static RLM_Agent_Binding__mdt overrideBinding;
+
+    private static RLM_Agent_Binding__mdt resolvedBinding;
+    private static Boolean bindingResolved = false;
+
+    private static RLM_Agent_Binding__mdt binding() {
+        if (overrideBinding != null) {
+            return overrideBinding;
+        }
+        if (!bindingResolved) {
+            resolvedBinding = RLM_Agent_Binding__mdt.getInstance('Default');
+            bindingResolved = true;
+        }
+        return resolvedBinding;
+    }
+
+    @TestVisible
+    private static String agentApiName() {
+        RLM_Agent_Binding__mdt b = binding();
+        String configured = (b == null) ? null : b.Saved_Line_Agent__c;
+        return String.isNotBlank(configured) ? configured.trim() : DEFAULT_AGENT_API_NAME;
+    }
+
+    @TestVisible
+    private static String prePersistAgentApiName() {
+        RLM_Agent_Binding__mdt b = binding();
+        String configured = (b == null) ? null : b.Pre_Persist_Agent__c;
+        return String.isNotBlank(configured) ? configured.trim() : DEFAULT_PREPERSIST_AGENT_API_NAME;
+    }
 
     // The standard CUSTOM invocable action that manages an agent session.
     @TestVisible
@@ -280,7 +316,7 @@ public with sharing class AgentAdvisorService {
                 String.isNotBlank(quoteLineItemId) && quoteLineItemId.startsWith('0QL');
             Boolean isPrePersist = !isPersistedLine && String.isNotBlank(productId);
 
-            String agentApiName = isPrePersist ? PREPERSIST_AGENT_API_NAME : AGENT_API_NAME;
+            String agentApiName = isPrePersist ? prePersistAgentApiName() : agentApiName();
             String userMessage = isPrePersist
                 ? buildProductContextMessage(question, productId)
                 : buildContextMessage(question, quoteId, quoteLineItemId);

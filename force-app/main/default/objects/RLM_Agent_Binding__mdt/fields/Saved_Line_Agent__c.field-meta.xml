@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Saved_Line_Agent__c</fullName>
+    <label>Saved Line Agent</label>
+    <type>Text</type>
+    <length>255</length>
+    <required>false</required>
+    <unique>false</unique>
+    <description>API name of the agent used once a quote line is persisted. Its topic actions need the real record. Default: Revenue_Quote_Management.</description>
+    <inlineHelpText>API name of the agent used once a quote line is persisted. Its topic actions need the real record. Default: Revenue_Quote_Management.</inlineHelpText>
+</CustomField>

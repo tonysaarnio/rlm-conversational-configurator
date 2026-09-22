@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <label>Default</label>
+    <protected>false</protected>
+    <values>
+        <field>Saved_Line_Agent__c</field>
+        <value xsi:type="xsd:string">Revenue_Quote_Management</value>
+    </values>
+    <values>
+        <field>Pre_Persist_Agent__c</field>
+        <value xsi:type="xsd:string">Revenue_Product_Advisor</value>
+    </values>
+</CustomMetadata>

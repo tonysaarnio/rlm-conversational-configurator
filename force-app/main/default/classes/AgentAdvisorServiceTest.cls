@@ -348,7 +348,7 @@ private class AgentAdvisorServiceTest {
         Test.stopTest();
 
         System.assertEquals(true, a.isSuccess, 'unexpected error: ' + a.errorMessage);
-        System.assertEquals(AgentAdvisorService.PREPERSIST_AGENT_API_NAME, gw.lastAgentApiName,
+        System.assertEquals(AgentAdvisorService.prePersistAgentApiName(), gw.lastAgentApiName,
             'pre-persist line must route to the Revenue_Product_Advisor agent');
         // Product context: product id, product name, and the attribute summary must be present.
         System.assert(gw.lastUserMessage.contains('productId=' + PRODUCT_ID), gw.lastUserMessage);
@@ -378,7 +378,7 @@ private class AgentAdvisorServiceTest {
         Test.stopTest();
 
         System.assertEquals(true, a.isSuccess, 'unexpected error: ' + a.errorMessage);
-        System.assertEquals(AgentAdvisorService.AGENT_API_NAME, gw.lastAgentApiName,
+        System.assertEquals(AgentAdvisorService.agentApiName(), gw.lastAgentApiName,
             'a persisted 0QL line must route to the saved-line Revenue_Quote_Management agent');
         System.assert(gw.lastUserMessage.contains('quoteLineItemId=' + QLI_ID), gw.lastUserMessage);
         System.assert(!gw.lastUserMessage.contains('productId='),
@@ -397,7 +397,7 @@ private class AgentAdvisorServiceTest {
         Test.stopTest();
 
         System.assertEquals(true, a.isSuccess, 'unexpected error: ' + a.errorMessage);
-        System.assertEquals(AgentAdvisorService.AGENT_API_NAME, gw.lastAgentApiName,
+        System.assertEquals(AgentAdvisorService.agentApiName(), gw.lastAgentApiName,
             '4-arg overload delegates with productId=null -> saved-line agent');
     }
 
@@ -425,5 +425,53 @@ private class AgentAdvisorServiceTest {
         // Null catalog + blank product -> bare question, no CONTEXT prefix.
         System.assertEquals('why?',
             AgentAdvisorService.formatProductContext('why?', '', null));
+    }
+
+    // ---------------------------------------------------------------------
+    // Agent API names come from custom metadata (added with RLM_Agent_Binding__mdt)
+    // ---------------------------------------------------------------------
+
+    @IsTest
+    static void agentNamesFallBackToDefaultsWithoutABindingRecord() {
+        AgentAdvisorService.overrideBinding = null;
+
+        Test.startTest();
+        System.assert(String.isNotBlank(AgentAdvisorService.agentApiName()),
+            'saved-line agent name must never resolve blank');
+        System.assert(String.isNotBlank(AgentAdvisorService.prePersistAgentApiName()),
+            'pre-persist agent name must never resolve blank');
+        Test.stopTest();
+    }
+
+    @IsTest
+    static void agentNamesCanBeRepointed() {
+        AgentAdvisorService.overrideBinding = new RLM_Agent_Binding__mdt(
+            Saved_Line_Agent__c  = 'ACME_Quote_Agent',
+            Pre_Persist_Agent__c = 'ACME_Advisor_Agent'
+        );
+
+        Test.startTest();
+        System.assertEquals('ACME_Quote_Agent', AgentAdvisorService.agentApiName());
+        System.assertEquals('ACME_Advisor_Agent', AgentAdvisorService.prePersistAgentApiName());
+        Test.stopTest();
+
+        AgentAdvisorService.overrideBinding = null;
+    }
+
+    @IsTest
+    static void blankAgentNameFallsBackAndPaddedNameIsTrimmed() {
+        AgentAdvisorService.overrideBinding = new RLM_Agent_Binding__mdt(
+            Saved_Line_Agent__c  = '   ',
+            Pre_Persist_Agent__c = '  ACME_Padded  '
+        );
+
+        Test.startTest();
+        System.assertEquals(AgentAdvisorService.DEFAULT_AGENT_API_NAME,
+            AgentAdvisorService.agentApiName(), 'whitespace must fall back to the default');
+        System.assertEquals('ACME_Padded',
+            AgentAdvisorService.prePersistAgentApiName(), 'a padded name must still resolve');
+        Test.stopTest();
+
+        AgentAdvisorService.overrideBinding = null;
     }
 }

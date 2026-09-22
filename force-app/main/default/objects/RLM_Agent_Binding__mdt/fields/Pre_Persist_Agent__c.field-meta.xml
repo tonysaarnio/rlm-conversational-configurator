@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Pre_Persist_Agent__c</fullName>
+    <label>Pre Persist Agent</label>
+    <type>Text</type>
+    <length>255</length>
+    <required>false</required>
+    <unique>false</unique>
+    <description>API name of the insight-only guided-selling agent used before a line is saved. Default: Revenue_Product_Advisor.</description>
+    <inlineHelpText>API name of the insight-only guided-selling agent used before a line is saved. Default: Revenue_Product_Advisor.</inlineHelpText>
+</CustomField>

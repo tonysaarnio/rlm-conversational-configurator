@@ -111,6 +111,19 @@ force-app/main/default/
 agent. `ConfigLmsGroundingService` and `ConfigEngineController` are reference for this feature and were not changed
 in the pre-persist work — no need to redeploy them unless you actually edit them.
 
+### If your agents are named differently
+
+Same idea as the engine binding below, for the two Agentforce agents:
+
+> **Setup → Custom Metadata Types → RLM Agent Binding → Manage Records → Default**
+
+| Field | Default | Used when |
+|---|---|---|
+| `Saved_Line_Agent__c` | `Revenue_Quote_Management` | a persisted `0QL…` line exists |
+| `Pre_Persist_Agent__c` | `Revenue_Product_Advisor` | launched from the catalog, before save |
+
+Blank falls back to the default. Deploying the agent bundle does not create a runtime agent — see §5a.
+
 ### If your engine services are named differently
 
 This repo deploys **on top of** an org that already has the RLM configurator engine, and that engine is not

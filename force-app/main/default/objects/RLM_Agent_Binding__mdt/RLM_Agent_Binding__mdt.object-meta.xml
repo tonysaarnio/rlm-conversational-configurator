@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>RLM Agent Binding</label>
+    <pluralLabel>RLM Agent Bindings</pluralLabel>
+    <visibility>Public</visibility>
+    <description>API names of the Agentforce agents the configurator panel talks to. An org that named its agents differently re-points them here instead of editing Apex.</description>
+</CustomObject>
