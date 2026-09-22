@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>RLM Conversational Configurator</label>
+    <description>Access for the RLM conversational Product Configurator (configChatPanel): the five Apex controllers the LWC calls, plus read on Quote, QuoteLineItem and Opportunity. Agentforce/Einstein access is granted separately.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+
+    <!-- One grant per Apex class the LWC imports directly (@salesforce/apex/*).
+         Apex-to-Apex callees do NOT need a grant here, so the org-resident engine
+         services (ProductAttributeService, ProductAttributeSaveService,
+         ProductAttributeReadService, QuoteLineItemLookupService) are deliberately
+         absent: ConfigEngineController calls them, the LWC does not.
+
+         UTIL_ConfigHelper is likewise absent. It is imported only by
+         renderDraw3DConfigurationPrototype, which is reference-only and not
+         deployed (see DEPLOYMENT_README.md §3). Add a grant for it if you ever
+         deploy that component to an org that has the class. -->
+    <classAccesses>
+        <apexClass>ConfigEngineController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>ConfigExtractionService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>ConfigLmsGroundingService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>ProductConfigGroundingService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>AgentAdvisorService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+
+    <!-- The panel reads the Quote context and the root configurable QuoteLineItem.
+         Read-only: the configurator's managed Data Manager owns writes and reprice.
+         Apex runs with sharing in system mode, so these grants are for direct
+         UI/record access rather than for Apex FLS enforcement. -->
+    <!-- Opportunity read is NOT optional: the platform rejects a permission set
+         that grants Read on Quote without Read on Opportunity
+         ("Permission Read Quote depends on permission(s): Read Opportunity"). -->
+    <objectPermissions>
+        <object>Opportunity</object>
+        <allowRead>true</allowRead>
+        <allowCreate>false</allowCreate>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>Quote</object>
+        <allowRead>true</allowRead>
+        <allowCreate>false</allowCreate>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>QuoteLineItem</object>
+        <allowRead>true</allowRead>
+        <allowCreate>false</allowCreate>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+</PermissionSet>

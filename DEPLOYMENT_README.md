@@ -102,6 +102,8 @@ force-app/main/default/
     RenderDraw_Product_Configurator_Flow.flow-meta.xml   # reference flow (protected; unchanged)
   aiAuthoringBundles/
     Revenue_Product_Advisor/              # NEW — NGA insight-only agent (.agent + .bundle-meta.xml)
+  permissionsets/
+    RLM_Conversational_Configurator…     # class + object access for panel users
 ```
 
 **Do NOT modify / redeploy as changes:** the four protected engine services (not in repo),
@@ -205,6 +207,18 @@ sf project deploy start \
    ```bash
    sf project retrieve start --source-dir force-app/main/default/aiAuthoringBundles/Revenue_Product_Advisor -o "$ORG" --wait 10
    ```
+
+### 5a-bis. Assign the permission set
+
+```bash
+sf project deploy start --source-dir force-app/main/default/permissionsets -o "$ORG" --wait 10
+sf org assign permset --name RLM_Conversational_Configurator -o "$ORG"
+```
+
+`RLM_Conversational_Configurator` grants the five Apex classes the LWC imports plus read on Quote,
+QuoteLineItem and Opportunity. An admin running with `ViewAllData`/`ModifyAllData` will not notice its absence,
+which is exactly why it is easy to ship a build that works for you and fails for every other user — assign it to
+anyone who will open the panel.
 
 ### 5b. Smoke-test the agent
 
@@ -324,6 +338,7 @@ sf project deploy start \
   --source-dir force-app/main/default/lwc/configRefreshProbe \
   --source-dir force-app/main/default/lwc/spikeConfigApply \
   --source-dir force-app/main/default/flows/Agent_Product_Configurator_Flow.flow-meta.xml \
+  --source-dir force-app/main/default/permissionsets \
   --source-dir force-app/main/default/aiAuthoringBundles/Revenue_Product_Advisor \
   -l RunSpecifiedTests \
   --tests ConfigExtractionServiceTest --tests AgentAdvisorServiceTest --tests ProductConfigGroundingServiceTest \
