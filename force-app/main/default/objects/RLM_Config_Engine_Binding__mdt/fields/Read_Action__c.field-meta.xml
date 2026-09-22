@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Read_Action__c</fullName>
+    <label>Read Action</label>
+    <type>Text</type>
+    <length>255</length>
+    <required>false</required>
+    <unique>false</unique>
+    <description>Invocable action that reads back saved attribute values. Default: ProductAttributeReadService.</description>
+    <inlineHelpText>Invocable action that reads back saved attribute values. Default: ProductAttributeReadService.</inlineHelpText>
+</CustomField>

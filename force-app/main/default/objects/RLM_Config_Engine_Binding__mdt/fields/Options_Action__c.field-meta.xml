@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Options_Action__c</fullName>
+    <label>Options Action</label>
+    <type>Text</type>
+    <length>255</length>
+    <required>false</required>
+    <unique>false</unique>
+    <description>Invocable action that returns a line’s configurable attribute options. Default: ProductAttributeService.</description>
+    <inlineHelpText>Invocable action that returns a line’s configurable attribute options. Default: ProductAttributeService.</inlineHelpText>
+</CustomField>

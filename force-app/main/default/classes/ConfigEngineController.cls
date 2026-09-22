@@ -7,12 +7,14 @@
  *
  * DESIGN INTENT
  * =============
- * The four backing services (ProductAttributeService, ProductAttributeSaveService,
- * ProductAttributeReadService, QuoteLineItemLookupService) already implement all of
+ * The backing services (by default ProductAttributeService,
+ * ProductAttributeSaveService, ProductAttributeReadService) already implement all of
  * the business logic — attribute discovery, the two-step Place Sales Transaction
- * (PST) save/reprice, and the post-save readback. They are @InvocableMethods marked
- * `public static` and live in the SAME namespace as this controller, so we call them
- * DIRECTLY. We deliberately add ZERO new engine logic here; this class only:
+ * (PST) save/reprice, and the post-save readback. They are @InvocableMethods, so we
+ * reach them BY NAME through ConfigEngineBinding rather than as compile-time types;
+ * an org that prefixes or namespaces them re-points the binding's custom metadata
+ * record instead of editing this file. We deliberately add ZERO new engine logic
+ * here; this class only:
  *   1. shapes the invocable Input/Output objects into @AuraEnabled DTOs the LWC can read,
  *   2. observes the price side-effect that PST commits (the SaveOutput carries no price), and
  *   3. diffs "what the rep asked for" vs "what was actually persisted" to surface the
@@ -29,32 +31,20 @@
 public with sharing class ConfigEngineController {
 
     // =========================================================================
-    // SAVE GATEWAY SEAM
+    // ENGINE SEAM
     // =========================================================================
-    // The save path ultimately runs the Place Sales Transaction API, which mutates
-    // the DB and reprices. In a normal (SeeAllData=true) test the real PST DOES run
-    // against the live quote — but to also cover the failure/exception branches
-    // DETERMINISTICALLY (without relying on the engine actually rejecting something),
-    // we route the save call through this injectable seam. Production uses the real
-    // gateway, which simply forwards to ProductAttributeSaveService; tests can swap in
-    // a mock that returns a canned SaveOutput or throws.
-    public interface SaveGateway {
-        List<ProductAttributeSaveService.SaveOutput> save(
-            List<ProductAttributeSaveService.SaveInput> inputs);
-    }
-
-    /** Real implementation: forwards to the existing invocable engine, unchanged. */
-    @TestVisible
-    private class RealSaveGateway implements SaveGateway {
-        public List<ProductAttributeSaveService.SaveOutput> save(
-                List<ProductAttributeSaveService.SaveInput> inputs) {
-            return ProductAttributeSaveService.saveAttributeSelections(inputs);
-        }
-    }
-
-    /** Default is the real engine; @TestVisible so tests can inject a mock. */
-    @TestVisible
-    private static SaveGateway saveGateway = new RealSaveGateway();
+    // Every call into the org's configurator engine goes through
+    // ConfigEngineBinding, which reaches the engine by invocable-action NAME and
+    // returns repo-owned DTOs. Two consequences worth knowing:
+    //
+    //   - No engine type appears anywhere in this class, so an org whose engine
+    //     services carry a namespace or prefix re-points them on the
+    //     RLM_Config_Engine_Binding__mdt "Default" record instead of editing Apex.
+    //   - The save path runs the Place Sales Transaction API, which mutates the DB
+    //     and reprices. Tests inject a stub gateway to cover the failure and
+    //     exception branches deterministically, rather than hoping the live engine
+    //     rejects something. (The previous seam published an engine type in its own
+    //     signature, so it insulated tests but not orgs.)
 
     // =========================================================================
     // DTOs — every field the LWC reads must be @AuraEnabled
@@ -150,14 +140,8 @@ public with sharing class ConfigEngineController {
         }
 
         try {
-            ProductAttributeService.GetAttributeOptionsInput inp =
-                new ProductAttributeService.GetAttributeOptionsInput();
-            inp.quoteLineItemId = quoteLineItemId;
-
-            // Single-element bulk call into the invocable service (no SOQL in a loop here).
-            ProductAttributeService.GetAttributeOptionsOutput out =
-                ProductAttributeService.getProductAttributeOptions(
-                    new List<ProductAttributeService.GetAttributeOptionsInput>{ inp })[0];
+            ConfigEngineBinding.OptionsResult out =
+                ConfigEngineBinding.gateway().options(quoteLineItemId);
 
             r.productName = out.productName;
             r.hasConfigurableAttributes = out.hasConfigurableAttributes == true;
@@ -240,14 +224,8 @@ public with sharing class ConfigEngineController {
             r.priceBefore = pq.snapshot;
 
             // 3. Delegate the save to the engine (two-step PST) via the seam.
-            ProductAttributeSaveService.SaveInput inp =
-                new ProductAttributeSaveService.SaveInput();
-            inp.quoteId = quoteId;
-            inp.quoteLineItemId = quoteLineItemId;
-            inp.attributeSelectionsJson = attributeSelectionsJson;
-
-            ProductAttributeSaveService.SaveOutput so = saveGateway.save(
-                new List<ProductAttributeSaveService.SaveInput>{ inp })[0];
+            ConfigEngineBinding.SaveResult so = ConfigEngineBinding.gateway().save(
+                quoteId, quoteLineItemId, attributeSelectionsJson);
 
             // 4. Save failure: report the engine's error and STOP. Nothing changed, so
             //    we skip the post-save price query to conserve governor limits.
@@ -309,13 +287,8 @@ public with sharing class ConfigEngineController {
         }
 
         try {
-            ProductAttributeReadService.ReadInput inp =
-                new ProductAttributeReadService.ReadInput();
-            inp.quoteLineItemId = quoteLineItemId;
-
-            ProductAttributeReadService.ReadOutput out =
-                ProductAttributeReadService.getSavedAttributeValues(
-                    new List<ProductAttributeReadService.ReadInput>{ inp })[0];
+            ConfigEngineBinding.ReadResult out =
+                ConfigEngineBinding.gateway().read(quoteLineItemId);
 
             r.configurationSummary = out.configurationSummary;
             r.savedAttributesJson  = out.savedAttributesJson;

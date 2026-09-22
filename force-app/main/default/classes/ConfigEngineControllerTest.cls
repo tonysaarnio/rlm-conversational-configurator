@@ -37,30 +37,50 @@ private class ConfigEngineControllerTest {
     // Mock gateways for deterministic failure/exception coverage
     // ---------------------------------------------------------------------
 
-    /** Returns a canned SaveOutput without ever touching the real PST. */
-    private class MockSaveGateway implements ConfigEngineController.SaveGateway {
-        private ProductAttributeSaveService.SaveOutput canned;
-        MockSaveGateway(ProductAttributeSaveService.SaveOutput canned) {
+    /**
+     * Stub gateway: canned save result, real options/read.
+     *
+     * Delegating the two read paths to the live gateway keeps these tests honest —
+     * only the save leg (the one that runs PST and mutates data) is faked.
+     */
+    private class MockSaveGateway implements ConfigEngineBinding.Gateway {
+        private ConfigEngineBinding.SaveResult canned;
+        private ConfigEngineBinding.Gateway realGateway;
+        MockSaveGateway(ConfigEngineBinding.SaveResult canned, ConfigEngineBinding.Gateway realGateway) {
             this.canned = canned;
+            this.realGateway = realGateway;
         }
-        public List<ProductAttributeSaveService.SaveOutput> save(
-                List<ProductAttributeSaveService.SaveInput> inputs) {
-            return new List<ProductAttributeSaveService.SaveOutput>{ canned };
+        public ConfigEngineBinding.OptionsResult options(String quoteLineItemId) {
+            return realGateway.options(quoteLineItemId);
+        }
+        public ConfigEngineBinding.SaveResult save(String q, String qli, String json) {
+            return canned;
+        }
+        public ConfigEngineBinding.ReadResult read(String quoteLineItemId) {
+            return realGateway.read(quoteLineItemId);
         }
     }
 
     /** Simulates the engine throwing (e.g. a PST platform/limit exception). */
-    private class ThrowingSaveGateway implements ConfigEngineController.SaveGateway {
-        public List<ProductAttributeSaveService.SaveOutput> save(
-                List<ProductAttributeSaveService.SaveInput> inputs) {
+    private class ThrowingSaveGateway implements ConfigEngineBinding.Gateway {
+        private ConfigEngineBinding.Gateway realGateway;
+        ThrowingSaveGateway(ConfigEngineBinding.Gateway realGateway) {
+            this.realGateway = realGateway;
+        }
+        public ConfigEngineBinding.OptionsResult options(String quoteLineItemId) {
+            return realGateway.options(quoteLineItemId);
+        }
+        public ConfigEngineBinding.SaveResult save(String q, String qli, String json) {
             throw new CalloutException('Simulated PST failure');
+        }
+        public ConfigEngineBinding.ReadResult read(String quoteLineItemId) {
+            return realGateway.read(quoteLineItemId);
         }
     }
 
-    private static ProductAttributeSaveService.SaveOutput makeSaveOutput(
+    private static ConfigEngineBinding.SaveResult makeSaveOutput(
             Boolean success, String savedJson, String err) {
-        ProductAttributeSaveService.SaveOutput so =
-            new ProductAttributeSaveService.SaveOutput();
+        ConfigEngineBinding.SaveResult so = new ConfigEngineBinding.SaveResult();
         so.isSuccess = success;
         so.isValid = true;
         so.savedAttributesJson = savedJson;
@@ -173,8 +193,9 @@ private class ConfigEngineControllerTest {
     @IsTest
     static void applyConfiguration_saveFailure_reportsEngineError() {
         // Inject a gateway that reports failure so we do not run PST.
-        ConfigEngineController.saveGateway = new MockSaveGateway(
-            makeSaveOutput(false, null, 'Engine rejected the save'));
+        ConfigEngineBinding.setGateway(new MockSaveGateway(
+            makeSaveOutput(false, null, 'Engine rejected the save'),
+            ConfigEngineBinding.gateway()));
 
         Test.startTest();
         ConfigEngineController.ApplyResult r = ConfigEngineController.applyConfiguration(
@@ -197,7 +218,7 @@ private class ConfigEngineControllerTest {
 
     @IsTest
     static void applyConfiguration_saveThrows_caughtAndReported() {
-        ConfigEngineController.saveGateway = new ThrowingSaveGateway();
+        ConfigEngineBinding.setGateway(new ThrowingSaveGateway(ConfigEngineBinding.gateway()));
 
         Test.startTest();
         ConfigEngineController.ApplyResult r = ConfigEngineController.applyConfiguration(
@@ -220,8 +241,9 @@ private class ConfigEngineControllerTest {
     static void applyConfiguration_success_computesDeltaAndDiff() {
         // Mock a successful save whose readback silently corrected requiredKW to 1500
         // (the documented DutyRating=DCC override). We request 900 to force a diff.
-        ConfigEngineController.saveGateway = new MockSaveGateway(
-            makeSaveOutput(true, '{"requiredKW":"1500","DutyRating":"Data Center Continuous (DCC)"}', null));
+        ConfigEngineBinding.setGateway(new MockSaveGateway(
+            makeSaveOutput(true, '{"requiredKW":"1500","DutyRating":"Data Center Continuous (DCC)"}', null),
+            ConfigEngineBinding.gateway()));
 
         Test.startTest();
         ConfigEngineController.ApplyResult r = ConfigEngineController.applyConfiguration(

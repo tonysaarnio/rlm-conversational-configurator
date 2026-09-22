@@ -111,6 +111,29 @@ force-app/main/default/
 agent. `ConfigLmsGroundingService` and `ConfigEngineController` are reference for this feature and were not changed
 in the pre-persist work — no need to redeploy them unless you actually edit them.
 
+### If your engine services are named differently
+
+This repo deploys **on top of** an org that already has the RLM configurator engine, and that engine is not
+always named the same way — a namespace or a local prefix (e.g. `RLM_AI_ProductAttributeService`) is common.
+
+You do **not** need to edit Apex for this. The controller reaches the engine by invocable-action *name* through
+`ConfigEngineBinding`, and the names live in custom metadata:
+
+> **Setup → Custom Metadata Types → RLM Config Engine Binding → Manage Records → Default**
+
+| Field | Default | Set it to |
+|---|---|---|
+| `Options_Action__c` | `ProductAttributeService` | your org's attribute-options action |
+| `Save_Action__c` | `ProductAttributeSaveService` | your org's save action |
+| `Read_Action__c` | `ProductAttributeReadService` | your org's readback action |
+
+Blank fields fall back to the defaults, so an org using the stock names needs no configuration at all. To find
+the names in your org: **Setup → search "Apex Classes"**, or list the invocable actions with
+`sf api request rest "/services/data/v68.0/actions/custom/apex" -o "$ORG"`.
+
+If a name is wrong you get an actionable error rather than a crash — the panel reports
+`Engine action "…" was not found in this org`, naming the action it tried and pointing at this record.
+
 > ⚠️ **`renderDraw3DConfigurationPrototype` cannot deploy to most orgs.** It imports three methods from
 > `UTIL_ConfigHelper`, which is org-resident and *not* in this repo, so any deploy whose scope includes it fails
 > with `Unable to find Apex action class referenced as 'UTIL_ConfigHelper'`. It is reference material — keep it out
