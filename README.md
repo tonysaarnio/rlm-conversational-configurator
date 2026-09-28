@@ -4,6 +4,33 @@
 > Product Configurator. Proof-of-concept — reuses the org's existing, managed configuration engine rather
 > than replacing it.
 
+## Origin and relationship to the upstream POC
+
+The component, its architecture and the original build are **[@lzdravkov](https://github.com/lzdravkov)'s**
+work, in [lzdravkov/rlm-agent-config-concept](https://github.com/lzdravkov/rlm-agent-config-concept). This
+repository is that POC made **portable**, after deploying it into a second org (Release 264 / API v68) that
+already had the RLM engine under different service names.
+
+What that took, and what changed here:
+
+| Area | Upstream | Here |
+|---|---|---|
+| Engine calls | Named as compile-time Apex types | Reached by invocable-action **name** via `ConfigEngineBinding` |
+| Engine/agent naming | Hardcoded constants | `RLM_Config_Engine_Binding__mdt` / `RLM_Agent_Binding__mdt` — Setup fields, no code change |
+| Access | No permission set shipped | `RLM_Conversational_Configurator` |
+| Credentials | Unused, broken, carried a real consumer key | Removed |
+| Deploy commands | Two documented commands fail off the reference org | Corrected and verified |
+| Live tests | Pinned to one org's record Ids | Discovered at run time; skip cleanly when absent |
+
+Concretely: the upstream source produced **53 compile errors** on that org and needed a rename across four
+files plus hand-edited record Ids. This build deploys at **28 components, 0 errors** and passes **75/75
+tests** there with no source edits — your org's naming is a custom-metadata record, not a patch.
+
+These changes were offered back upstream in
+[lzdravkov/rlm-agent-config-concept#2](https://github.com/lzdravkov/rlm-agent-config-concept/pull/2) and the
+stack behind it. This repository exists so the portable build is usable without waiting on that review; if it
+merges, upstream is the better home.
+
 ---
 
 ## What this component does
